@@ -1,0 +1,859 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2822
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\paperw11900\paperh16840\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 import React, \{ useState, useEffect, useCallback, memo \} from 'react';\
+import \{ \
+  BrainCircuit, Target, Globe, Briefcase, GraduationCap, \
+  Phone, Mail, ChevronRight, Award, Calendar, Clock, Video, \
+  HeartPulse, Menu, X, ArrowRight, Sparkles, Shield\
+\} from 'lucide-react';\
+\
+// ==========================================\
+// CUSTOM HOOKS (Following modern patterns [^2^])\
+// ==========================================\
+\
+const useScrollPosition = () => \{\
+  const [scrollPosition, setScrollPosition] = useState(0);\
+  const [isScrolled, setIsScrolled] = useState(false);\
+\
+  useEffect(() => \{\
+    const handleScroll = () => \{\
+      const position = window.scrollY;\
+      setScrollPosition(position);\
+      setIsScrolled(position > 50);\
+    \};\
+\
+    window.addEventListener('scroll', handleScroll, \{ passive: true \});\
+    return () => window.removeEventListener('scroll', handleScroll);\
+  \}, []);\
+\
+  return \{ scrollPosition, isScrolled \};\
+\};\
+\
+const useIntersectionObserver = (options = \{\}) => \{\
+  const [isIntersecting, setIsIntersecting] = useState(false);\
+  const [ref, setRef] = useState(null);\
+\
+  useEffect(() => \{\
+    if (!ref) return;\
+\
+    const observer = new IntersectionObserver(([entry]) => \{\
+      if (entry.isIntersecting) \{\
+        setIsIntersecting(true);\
+        observer.disconnect();\
+      \}\
+    \}, \{ threshold: 0.1, ...options \});\
+\
+    observer.observe(ref);\
+    return () => observer.disconnect();\
+  \}, [ref, options]);\
+\
+  return [setRef, isIntersecting];\
+\};\
+\
+// ==========================================\
+// ANIMATION COMPONENTS (Using Tailwind [^4^][^6^])\
+// ==========================================\
+\
+const FadeIn = memo((\{ children, delay = 0, direction = 'up', className = '' \}) => \{\
+  const [ref, isVisible] = useIntersectionObserver();\
+  \
+  const directionClasses = \{\
+    up: 'translate-y-8',\
+    down: '-translate-y-8',\
+    left: 'translate-x-8',\
+    right: '-translate-x-8'\
+  \};\
+\
+  return (\
+    <div\
+      ref=\{ref\}\
+      className=\{`transform transition-all duration-700 ease-out $\{\
+        isVisible \
+          ? 'opacity-100 translate-y-0 translate-x-0' \
+          : `opacity-0 $\{directionClasses[direction]\}`\
+      \} $\{className\}`\}\
+      style=\{\{ transitionDelay: `$\{delay\}ms` \}\}\
+    >\
+      \{children\}\
+    </div>\
+  );\
+\});\
+\
+const StaggerContainer = memo((\{ children, className = '', staggerDelay = 100 \}) => \{\
+  const [ref, isVisible] = useIntersectionObserver();\
+  \
+  return (\
+    <div ref=\{ref\} className=\{className\}>\
+      \{React.Children.map(children, (child, index) => (\
+        <div\
+          className=\{`transform transition-all duration-500 ease-out $\{\
+            isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'\
+          \}`\}\
+          style=\{\{ transitionDelay: `$\{index * staggerDelay\}ms` \}\}\
+        >\
+          \{child\}\
+        </div>\
+      ))\}\
+    </div>\
+  );\
+\});\
+\
+// ==========================================\
+// UI COMPONENTS (Compound Pattern [^8^][^11^])\
+// ==========================================\
+\
+const Card = memo((\{ children, className = '', variant = 'default', hover = true \}) => \{\
+  const variants = \{\
+    default: 'bg-white border-slate-100',\
+    dark: 'bg-slate-800 border-slate-700 text-white',\
+    featured: 'bg-gradient-to-b from-amber-600 to-amber-700 border-amber-500 text-white',\
+    subtle: 'bg-slate-50 border-slate-100'\
+  \};\
+\
+  return (\
+    <div \
+      className=\{`rounded-2xl p-8 shadow-sm border transition-all duration-300 $\{\
+        hover ? 'hover:shadow-xl hover:-translate-y-1' : ''\
+      \} $\{variants[variant]\} $\{className\}`\}\
+    >\
+      \{children\}\
+    </div>\
+  );\
+\});\
+\
+const Button = memo((\{ \
+  children, \
+  variant = 'primary', \
+  size = 'md', \
+  href, \
+  external = false,\
+  className = '',\
+  ...props \
+\}) => \{\
+  const variants = \{\
+    primary: 'bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-600/20',\
+    secondary: 'bg-slate-800 hover:bg-slate-700 text-white border border-slate-700',\
+    outline: 'bg-transparent border-2 border-amber-600 text-amber-600 hover:bg-amber-600 hover:text-white',\
+    ghost: 'bg-transparent hover:bg-slate-100 text-slate-700'\
+  \};\
+\
+  const sizes = \{\
+    sm: 'px-4 py-2 text-sm',\
+    md: 'px-6 py-3 text-base',\
+    lg: 'px-8 py-4 text-lg',\
+    xl: 'px-12 py-5 text-lg'\
+  \};\
+\
+  const baseClasses = `\
+    inline-flex items-center justify-center gap-2 \
+    rounded-lg font-semibold transition-all duration-300 \
+    active:scale-95 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2\
+    $\{variants[variant]\} $\{sizes[size]\} $\{className\}\
+  `;\
+\
+  if (href) \{\
+    return (\
+      <a \
+        href=\{href\} \
+        className=\{baseClasses\}\
+        \{...(external && \{ target: '_blank', rel: 'noopener noreferrer' \})\}\
+        \{...props\}\
+      >\
+        \{children\}\
+      </a>\
+    );\
+  \}\
+\
+  return (\
+    <button className=\{baseClasses\} \{...props\}>\
+      \{children\}\
+    </button>\
+  );\
+\});\
+\
+const Badge = memo((\{ children, variant = 'default' \}) => \{\
+  const variants = \{\
+    default: 'bg-slate-800 border-slate-700 text-amber-500',\
+    light: 'bg-amber-50 border-amber-200 text-amber-700',\
+    outline: 'bg-transparent border-amber-500 text-amber-500'\
+  \};\
+\
+  return (\
+    <span className=\{`inline-flex items-center gap-2 px-4 py-1.5 rounded-full border text-xs font-bold uppercase tracking-wider $\{variants[variant]\}`\}>\
+      \{children\}\
+    </span>\
+  );\
+\});\
+\
+// ==========================================\
+// SECTION COMPONENTS\
+// ==========================================\
+\
+const Navigation = memo(() => \{\
+  const \{ isScrolled \} = useScrollPosition();\
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);\
+\
+  const navLinks = [\
+    \{ href: '#about', label: 'About' \},\
+    \{ href: '#services', label: 'Services' \},\
+    \{ href: '#fees', label: 'Fees' \},\
+    \{ href: '#booking', label: 'Book Session', featured: true \}\
+  ];\
+\
+  return (\
+    <nav \
+      className=\{`fixed top-0 left-0 right-0 z-50 transition-all duration-300 $\{\
+        isScrolled \
+          ? 'bg-slate-900/95 backdrop-blur-md shadow-lg border-b border-slate-800' \
+          : 'bg-transparent'\
+      \}`\}\
+    >\
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">\
+        <div className="flex justify-between items-center h-20">\
+          \{/* Logo */\}\
+          <a href="#" className="flex items-center gap-3 group">\
+            <div className="relative w-10 h-10">\
+              <svg viewBox="0 0 120 60" className="w-full h-full">\
+                <circle cx="100" cy="30" r="15" fill="none" stroke="#f59e0b" strokeWidth="2" className="animate-pulse"/>\
+                <circle cx="100" cy="30" r="8" fill="none" stroke="#ffffff" strokeWidth="2"/>\
+                <circle cx="100" cy="30" r="3" fill="#f59e0b"/>\
+                <circle cx="20" cy="15" r="5" fill="#ffffff"/>\
+                <line x1="20" y1="20" x2="20" y2="45" stroke="#ffffff" strokeWidth="2" strokeLinecap="round"/>\
+                <line x1="20" y1="25" x2="40" y2="30" stroke="#ffffff" strokeWidth="2" strokeLinecap="round"/>\
+                <line x1="20" y1="25" x2="5" y2="30" stroke="#ffffff" strokeWidth="2" strokeLinecap="round"/>\
+                <path d="M40 10 Q50 30 40 50" fill="none" stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round"/>\
+                <line x1="5" y1="30" x2="90" y2="30" stroke="#ffffff" strokeWidth="1.5"/>\
+                <polygon points="90,27 96,30 90,33" fill="#ffffff"/>\
+              </svg>\
+            </div>\
+            <div>\
+              <h1 className="text-xl font-bold tracking-widest text-white m-0 leading-tight group-hover:text-amber-500 transition-colors">\
+                TRISULA<span className="text-amber-500 font-light">360</span>AURA\
+              </h1>\
+              <p className="text-[0.55rem] tracking-[0.2em] text-slate-400 uppercase m-0">\
+                Psychology & Career Strategy\
+              </p>\
+            </div>\
+          </a>\
+\
+          \{/* Desktop Navigation */\}\
+          <div className="hidden md:flex items-center gap-8">\
+            \{navLinks.map((link) => (\
+              <a\
+                key=\{link.href\}\
+                href=\{link.href\}\
+                className=\{`text-sm font-medium transition-colors $\{\
+                  link.featured \
+                    ? 'text-amber-500 font-bold border-b-2 border-amber-500 pb-1' \
+                    : 'text-slate-300 hover:text-amber-500'\
+                \}`\}\
+              >\
+                \{link.label\}\
+              </a>\
+            ))\}\
+            <Button href="#booking" size="sm">\
+              Consultation\
+            </Button>\
+          </div>\
+\
+          \{/* Mobile Menu Button */\}\
+          <button \
+            className="md:hidden p-2 text-white hover:text-amber-500 transition-colors"\
+            onClick=\{() => setIsMobileMenuOpen(!isMobileMenuOpen)\}\
+            aria-label="Toggle menu"\
+          >\
+            \{isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />\}\
+          </button>\
+        </div>\
+\
+        \{/* Mobile Menu */\}\
+        <div \
+          className=\{`md:hidden overflow-hidden transition-all duration-300 $\{\
+            isMobileMenuOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'\
+          \}`\}\
+        >\
+          <div className="py-4 space-y-4 border-t border-slate-800">\
+            \{navLinks.map((link) => (\
+              <a\
+                key=\{link.href\}\
+                href=\{link.href\}\
+                className=\{`block text-sm font-medium $\{\
+                  link.featured ? 'text-amber-500' : 'text-slate-300'\
+                \}`\}\
+                onClick=\{() => setIsMobileMenuOpen(false)\}\
+              >\
+                \{link.label\}\
+              </a>\
+            ))\}\
+          </div>\
+        </div>\
+      </div>\
+    </nav>\
+  );\
+\});\
+\
+const Hero = memo(() => \{\
+  return (\
+    <section className="relative min-h-screen bg-slate-900 overflow-hidden flex items-center">\
+      \{/* Animated Background Elements */\}\
+      <div className="absolute inset-0 overflow-hidden">\
+        <div className="absolute top-20 right-20 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl animate-pulse" />\
+        <div className="absolute bottom-20 left-20 w-72 h-72 bg-amber-600/5 rounded-full blur-3xl" />\
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-gradient-radial from-amber-500/5 to-transparent rounded-full" />\
+      </div>\
+\
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-32 relative z-10 w-full">\
+        <div className="max-w-3xl">\
+          <FadeIn delay=\{0\}>\
+            <Badge variant="default" className="mb-8">\
+              <Globe className="w-4 h-4" />\
+              UK & India Strategic Counselling\
+            </Badge>\
+          </FadeIn>\
+\
+          <FadeIn delay=\{100\}>\
+            <h1 className="text-5xl md:text-7xl font-bold text-white leading-[1.1] mb-8">\
+              Empowering Minds. <br />\
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-600">\
+                Architecting Careers.\
+              </span>\
+            </h1>\
+          </FadeIn>\
+\
+          <FadeIn delay=\{200\}>\
+            <p className="text-xl md:text-2xl text-slate-300 mb-12 max-w-2xl leading-relaxed font-light">\
+              "Fusing psychological depth with corporate strategy to help you navigate life's most critical transitions."\
+            </p>\
+          </FadeIn>\
+\
+          <FadeIn delay=\{300\}>\
+            <div className="flex flex-col sm:flex-row gap-4">\
+              <Button href="#booking" variant="primary" size="lg">\
+                <Calendar className="w-5 h-5" />\
+                Schedule a Session\
+              </Button>\
+              <Button href="#services" variant="secondary" size="lg">\
+                Our Approach\
+                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />\
+              </Button>\
+            </div>\
+          </FadeIn>\
+\
+          \{/* Trust Indicators */\}\
+          <FadeIn delay=\{400\} className="mt-16 pt-8 border-t border-slate-800">\
+            <div className="flex flex-wrap items-center gap-8 text-slate-400 text-sm">\
+              <div className="flex items-center gap-2">\
+                <Shield className="w-4 h-4 text-amber-500" />\
+                <span>Confidential</span>\
+              </div>\
+              <div className="flex items-center gap-2">\
+                <Video className="w-4 h-4 text-amber-500" />\
+                <span>Video Sessions</span>\
+              </div>\
+              <div className="flex items-center gap-2">\
+                <Award className="w-4 h-4 text-amber-500" />\
+                <span>BPS Accredited</span>\
+              </div>\
+            </div>\
+          </FadeIn>\
+        </div>\
+      </div>\
+\
+      \{/* Scroll Indicator */\}\
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">\
+        <div className="w-6 h-10 border-2 border-slate-600 rounded-full flex justify-center pt-2">\
+          <div className="w-1 h-2 bg-amber-500 rounded-full" />\
+        </div>\
+      </div>\
+    </section>\
+  );\
+\});\
+\
+const About = memo(() => \{\
+  const qualifications = [\
+    \{\
+      title: 'MBA Human Resource Management',\
+      subtitle: 'University of Bedfordshire, United Kingdom',\
+      icon: Briefcase\
+    \},\
+    \{\
+      title: 'M.A. Psychology & PGDGC',\
+      subtitle: 'India',\
+      icon: BrainCircuit\
+    \},\
+    \{\
+      title: 'B.Sc. (Hons) Information Technology',\
+      subtitle: 'Foundation in Tech & STEM',\
+      icon: GraduationCap\
+    \}\
+  ];\
+\
+  return (\
+    <section id="about" className="py-24 bg-white">\
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">\
+        <div className="grid lg:grid-cols-2 gap-16 items-center">\
+          <FadeIn direction="left">\
+            <div>\
+              <span className="text-amber-600 font-semibold text-sm uppercase tracking-wider mb-4 block">\
+                About Pardeep\
+              </span>\
+              <h2 className="text-4xl font-bold text-slate-900 mb-6">\
+                Meet Pardeep Kumar, <span className="text-amber-600">GMBPSs</span>\
+              </h2>\
+              <div className="w-20 h-1 bg-amber-500 mb-8 rounded-full" />\
+              \
+              <div className="prose prose-lg text-slate-600 mb-8">\
+                <p className="mb-4">\
+                  Pardeep is a uniquely positioned expert bridging the gap between human psychology and the global corporate landscape. As a <strong>Counselling Psychologist</strong> and <strong>Career Strategist</strong>, he provides a 360-degree support system for students and professionals.\
+                </p>\
+                <p>\
+                  By combining deep clinical training in Psychology with a UK MBA in Human Resource Management and an IT background, Pardeep offers a rare blend of empathy and marketplace logic. He helps you manage the stress of today while architecting the success of tomorrow.\
+                </p>\
+              </div>\
+\
+              <div className="grid grid-cols-2 gap-4">\
+                <Card variant="subtle" className="p-6" hover=\{false\}>\
+                  <Award className="w-8 h-8 text-amber-500 mb-3" />\
+                  <p className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-1">UK Accreditation</p>\
+                  <p className="text-xs text-slate-500">Graduate Member of the British Psychological Society (GMBPSs)</p>\
+                </Card>\
+                <Card variant="subtle" className="p-6" hover=\{false\}>\
+                  <Globe className="w-8 h-8 text-amber-500 mb-3" />\
+                  <p className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-1">Indian License</p>\
+                  <p className="text-xs text-slate-500">Counsellor Council of India (CCI)</p>\
+                </Card>\
+              </div>\
+            </div>\
+          </FadeIn>\
+\
+          <FadeIn direction="right">\
+            <Card variant="dark" className="relative overflow-hidden">\
+              <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />\
+              \
+              <div className="relative z-10">\
+                <h3 className="text-2xl font-bold mb-8 flex items-center gap-3">\
+                  <GraduationCap className="w-7 h-7 text-amber-500" />\
+                  Academic Pedigree\
+                </h3>\
+                \
+                <div className="space-y-6">\
+                  \{qualifications.map((qual, index) => (\
+                    <div key=\{index\} className="flex gap-4 group">\
+                      <div className="mt-1">\
+                        <div className="w-3 h-3 rounded-full border-2 border-amber-500 group-hover:bg-amber-500 transition-colors" />\
+                        \{index !== qualifications.length - 1 && (\
+                          <div className="w-0.5 h-12 bg-slate-700 ml-1 mt-2" />\
+                        )\}\
+                      </div>\
+                      <div className="flex-1 pb-6">\
+                        <div className="flex items-start gap-3">\
+                          <qual.icon className="w-5 h-5 text-amber-400 mt-1 shrink-0" />\
+                          <div>\
+                            <h4 className="font-semibold text-lg text-amber-400 leading-tight mb-1">\
+                              \{qual.title\}\
+                            </h4>\
+                            <p className="text-xs text-slate-400 uppercase tracking-widest">\
+                              \{qual.subtitle\}\
+                            </p>\
+                          </div>\
+                        </div>\
+                      </div>\
+                    </div>\
+                  ))\}\
+                </div>\
+              </div>\
+            </Card>\
+          </FadeIn>\
+        </div>\
+      </div>\
+    </section>\
+  );\
+\});\
+\
+const Services = memo(() => \{\
+  const services = [\
+    \{\
+      icon: Target,\
+      title: 'Career Strategy',\
+      description: 'Utilizing AI-powered psychometric tools to identify your core strengths and aligning them with the current job market trends in India and the UK.',\
+      color: 'amber'\
+    \},\
+    \{\
+      icon: Globe,\
+      title: 'Study Abroad',\
+      description: 'Expert guidance for Indian students seeking admissions in the UK, USA, and Canada. Comprehensive support for SOP writing and university selection.',\
+      color: 'blue'\
+    \},\
+    \{\
+      icon: HeartPulse,\
+      title: 'Mental Health',\
+      description: 'Evidence-based therapy for anxiety, mild-to-moderate depression, relationship conflicts, grief, emotional trauma, and academic/workplace burnout.',\
+      color: 'rose',\
+      featured: true\
+    \},\
+    \{\
+      icon: Briefcase,\
+      title: 'HR Strategy',\
+      description: 'LinkedIn profile optimization, CV/Resume building, and mock interview coaching led by a UK MBA Human Resource specialist.',\
+      color: 'emerald'\
+    \}\
+  ];\
+\
+  return (\
+    <section id="services" className="py-24 bg-slate-50">\
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">\
+        <FadeIn className="text-center mb-16">\
+          <span className="text-amber-600 font-semibold text-sm uppercase tracking-wider mb-4 block">\
+            What We Offer\
+          </span>\
+          <h2 className="text-4xl font-bold text-slate-900 mb-4">\
+            Core Areas of Expertise\
+          </h2>\
+          <div className="w-20 h-1 bg-amber-500 mx-auto rounded-full" />\
+        </FadeIn>\
+\
+        <StaggerContainer className="grid md:grid-cols-2 lg:grid-cols-4 gap-8" staggerDelay=\{150\}>\
+          \{services.map((service) => (\
+            <Card \
+              key=\{service.title\}\
+              className=\{`relative overflow-hidden $\{service.featured ? 'ring-2 ring-amber-500/50' : ''\}`\}\
+            >\
+              \{service.featured && (\
+                <div className="absolute top-4 right-4">\
+                  <Sparkles className="w-5 h-5 text-amber-500 animate-pulse" />\
+                </div>\
+              )\}\
+              \
+              <div className=\{`w-14 h-14 rounded-xl flex items-center justify-center mb-6 $\{\
+                service.featured ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-600'\
+              \}`\}>\
+                <service.icon className="w-7 h-7" />\
+              </div>\
+              \
+              <h3 className="text-xl font-bold text-slate-900 mb-3">\
+                \{service.title\}\
+              </h3>\
+              \
+              <p className="text-slate-600 text-sm leading-relaxed">\
+                \{service.description\}\
+              </p>\
+\
+              <div className="mt-6 pt-6 border-t border-slate-100">\
+                <a \
+                  href="#booking" \
+                  className="inline-flex items-center text-sm font-semibold text-amber-600 hover:text-amber-700 transition-colors group"\
+                >\
+                  Learn more\
+                  <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />\
+                </a>\
+              </div>\
+            </Card>\
+          ))\}\
+        </StaggerContainer>\
+      </div>\
+    </section>\
+  );\
+\});\
+\
+const Pricing = memo(() => \{\
+  const plans = [\
+    \{\
+      name: 'Discovery Session',\
+      subtitle: '30 Minute Consultation',\
+      priceINR: '\uc0\u8377 1,500',\
+      priceGBP: '\'a315',\
+      features: [\
+        'Preliminary profile audit',\
+        'Service mapping & goals',\
+        'Q&A session'\
+      ],\
+      cta: 'Select Plan',\
+      variant: 'default'\
+    \},\
+    \{\
+      name: 'Career Architecture',\
+      subtitle: 'Full Assessment & Strategic Plan',\
+      priceINR: '\uc0\u8377 8,500',\
+      priceGBP: '\'a385',\
+      features: [\
+        'AI-Driven Psychometric Testing',\
+        '1-Hour deep-dive counseling',\
+        '12-Month strategic roadmap',\
+        'Follow-up support'\
+      ],\
+      cta: 'Select Plan',\
+      variant: 'featured',\
+      recommended: true\
+    \},\
+    \{\
+      name: 'Therapeutic Session',\
+      subtitle: '60 Minute Clinical Therapy',\
+      priceINR: '\uc0\u8377 3,000',\
+      priceGBP: '\'a330',\
+      features: [\
+        'Anxiety & Depression support',\
+        'Relationship & Grief therapy',\
+        'Burnout & Trauma management',\
+        'Confidential environment'\
+      ],\
+      cta: 'Select Plan',\
+      variant: 'default'\
+    \}\
+  ];\
+\
+  return (\
+    <section id="fees" className="py-24 bg-slate-900 text-white relative overflow-hidden">\
+      \{/* Background Pattern */\}\
+      <div className="absolute inset-0 opacity-5">\
+        <div className="absolute inset-0" style=\{\{\
+          backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)',\
+          backgroundSize: '40px 40px'\
+        \}\} />\
+      </div>\
+\
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">\
+        <FadeIn className="text-center mb-20">\
+          <span className="text-amber-500 font-semibold text-sm uppercase tracking-wider mb-4 block">\
+            Investment\
+          </span>\
+          <h2 className="text-4xl font-bold mb-4">Professional Investment</h2>\
+          <div className="w-20 h-1 bg-amber-500 mx-auto mb-6 rounded-full" />\
+          <p className="text-slate-400 max-w-2xl mx-auto text-lg">\
+            Transparent pricing for global consultation sessions via secure video conference.\
+          </p>\
+        </FadeIn>\
+\
+        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto items-center">\
+          \{plans.map((plan, index) => (\
+            <FadeIn key=\{plan.name\} delay=\{index * 100\} className=\{plan.recommended ? 'md:-translate-y-4' : ''\}>\
+              <Card \
+                variant=\{plan.variant\} \
+                className=\{`relative h-full flex flex-col $\{plan.recommended ? 'shadow-2xl shadow-amber-900/20' : ''\}`\}\
+              >\
+                \{plan.recommended && (\
+                  <div className="absolute -top-4 left-1/2 -translate-x-1/2">\
+                    <Badge variant="light">Recommended</Badge>\
+                  </div>\
+                )\}\
+\
+                <div className="mb-8">\
+                  <h3 className=\{`text-xl font-bold mb-2 $\{plan.variant === 'featured' ? 'text-white' : 'text-amber-500'\}`\}>\
+                    \{plan.name\}\
+                  </h3>\
+                  <p className=\{`text-xs tracking-widest uppercase $\{plan.variant === 'featured' ? 'text-amber-100' : 'text-slate-400'\}`\}>\
+                    \{plan.subtitle\}\
+                  </p>\
+                </div>\
+\
+                <div className="mb-8">\
+                  <div className="text-4xl font-bold mb-2">\
+                    \{plan.priceINR\}\
+                    <span className=\{`text-lg font-normal ml-2 $\{plan.variant === 'featured' ? 'text-amber-200' : 'text-slate-500'\}`\}>\
+                      / \{plan.priceGBP\}\
+                    </span>\
+                  </div>\
+                </div>\
+\
+                <ul className="space-y-4 mb-10 flex-1">\
+                  \{plan.features.map((feature) => (\
+                    <li key=\{feature\} className="flex gap-3 text-sm">\
+                      <ChevronRight className=\{`w-5 h-5 shrink-0 $\{plan.variant === 'featured' ? 'text-slate-900' : 'text-amber-500'\}`\} />\
+                      <span className=\{plan.variant === 'featured' ? 'text-amber-50' : 'text-slate-300'\}>\
+                        \{feature\}\
+                      </span>\
+                    </li>\
+                  ))\}\
+                </ul>\
+\
+                <Button \
+                  href="#booking" \
+                  variant=\{plan.variant === 'featured' ? 'secondary' : 'primary'\}\
+                  className="w-full justify-center"\
+                >\
+                  \{plan.cta\}\
+                </Button>\
+              </Card>\
+            </FadeIn>\
+          ))\}\
+        </div>\
+      </div>\
+    </section>\
+  );\
+\});\
+\
+const Booking = memo(() => \{\
+  return (\
+    <section id="booking" className="py-24 bg-amber-50 relative overflow-hidden">\
+      \{/* Decorative Elements */\}\
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">\
+        <div className="absolute -top-24 -left-24 w-96 h-96 bg-amber-200/30 rounded-full blur-3xl" />\
+        <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-amber-300/20 rounded-full blur-3xl" />\
+      </div>\
+\
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">\
+        <FadeIn>\
+          <Card className="overflow-hidden shadow-2xl border-amber-200 p-0">\
+            <div className="grid md:grid-cols-5">\
+              <div className="md:col-span-2 bg-slate-900 text-white p-10 md:p-12 flex flex-col justify-between">\
+                <div>\
+                  <h2 className="text-3xl font-bold mb-6">Schedule Your Consult</h2>\
+                  <p className="text-slate-400 text-sm leading-relaxed mb-8">\
+                    Ready for total clarity? Book a session in your local time zone (IST or UK). All sessions are held via secure, high-definition video conferencing.\
+                  </p>\
+                  \
+                  <div className="space-y-6">\
+                    <div className="flex items-start gap-4">\
+                      <div className="p-2 bg-slate-800 rounded-lg">\
+                        <Calendar className="w-5 h-5 text-amber-500" />\
+                      </div>\
+                      <div>\
+                        <h4 className="font-bold text-white text-sm mb-1">Automated Time Zones</h4>\
+                        <p className="text-xs text-slate-500 uppercase tracking-wider">Syncs perfectly with your location</p>\
+                      </div>\
+                    </div>\
+                    \
+                    <div className="flex items-start gap-4">\
+                      <div className="p-2 bg-slate-800 rounded-lg">\
+                        <Video className="w-5 h-5 text-amber-500" />\
+                      </div>\
+                      <div>\
+                        <h4 className="font-bold text-white text-sm mb-1">Secure Meeting Link</h4>\
+                        <p className="text-xs text-slate-500 uppercase tracking-wider">Zoom/Google Meet links sent instantly</p>\
+                      </div>\
+                    </div>\
+\
+                    <div className="flex items-start gap-4">\
+                      <div className="p-2 bg-slate-800 rounded-lg">\
+                        <Shield className="w-5 h-5 text-amber-500" />\
+                      </div>\
+                      <div>\
+                        <h4 className="font-bold text-white text-sm mb-1">100% Confidential</h4>\
+                        <p className="text-xs text-slate-500 uppercase tracking-wider">Strict privacy protocols</p>\
+                      </div>\
+                    </div>\
+                  </div>\
+                </div>\
+              </div>\
+\
+              <div className="md:col-span-3 p-10 md:p-12 flex flex-col items-center justify-center text-center bg-white">\
+                <div className="w-20 h-20 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mb-8 shadow-inner animate-pulse">\
+                  <Clock className="w-10 h-10" />\
+                </div>\
+                \
+                <h3 className="text-2xl font-bold text-slate-900 mb-4">\
+                  Select Your Slot\
+                </h3>\
+                \
+                <p className="text-slate-500 mb-10 max-w-sm">\
+                  Click the button below to view our live availability and secure your appointment with Pardeep.\
+                </p>\
+                \
+                <Button \
+                  href="https://calendly.com" \
+                  external \
+                  variant="primary" \
+                  size="xl"\
+                  className="rounded-full shadow-amber-600/30 hover:shadow-amber-600/50"\
+                >\
+                  <Calendar className="w-6 h-6 animate-bounce" />\
+                  Open Live Calendar\
+                </Button>\
+\
+                <p className="mt-6 text-xs text-slate-400">\
+                  Usually responds within 24 hours\
+                </p>\
+              </div>\
+            </div>\
+          </Card>\
+        </FadeIn>\
+      </div>\
+    </section>\
+  );\
+\});\
+\
+const Footer = memo(() => \{\
+  const currentYear = new Date().getFullYear();\
+\
+  return (\
+    <footer className="bg-white border-t border-slate-200">\
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">\
+        <div className="flex flex-col md:flex-row justify-between items-center gap-12">\
+          \
+          <div className="text-center md:text-left">\
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">\
+              TRISULA<span className="text-amber-500 font-light">360</span>AURA\
+            </h2>\
+            <p className="text-xs text-slate-400 tracking-widest uppercase mb-8">\
+              Pardeep Kumar, GMBPSs | London \'95 New Delhi\
+            </p>\
+            \
+            <div className="flex flex-col gap-3 text-sm text-slate-600">\
+              <a \
+                href="tel:+447572419147" \
+                className="flex items-center justify-center md:justify-start gap-3 hover:text-amber-600 transition-colors group"\
+              >\
+                <Phone className="w-4 h-4 text-amber-500 group-hover:scale-110 transition-transform" />\
+                <span className="font-medium">+44 7572 419147 | +44 7799 104630</span>\
+              </a>\
+              <a \
+                href="mailto:Kumarlallar26@gmail.com" \
+                className="flex items-center justify-center md:justify-start gap-3 hover:text-amber-600 transition-colors group"\
+              >\
+                <Mail className="w-4 h-4 text-amber-500 group-hover:scale-110 transition-transform" />\
+                <span className="font-medium">Kumarlallar26@gmail.com</span>\
+              </a>\
+            </div>\
+          </div>\
+\
+          <div className="flex flex-col items-center md:items-end gap-6">\
+            <div className="flex gap-6 text-sm font-semibold text-slate-400">\
+              <a href="#about" className="hover:text-amber-600 transition-colors">About</a>\
+              <a href="#services" className="hover:text-amber-600 transition-colors">Services</a>\
+              <a href="#booking" className="hover:text-amber-600 text-amber-600">Book Session</a>\
+            </div>\
+            \
+            <div className="flex items-center gap-4">\
+              <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center">\
+                <Award className="w-6 h-6 text-slate-400" />\
+              </div>\
+              <p className="text-[10px] text-slate-400 text-right uppercase tracking-tighter max-w-xs leading-relaxed">\
+                Member of British Psychological Society (GMBPSs) & Counsellor Council of India (CCI). All clinical sessions adhere to strict confidentiality protocols.\
+              </p>\
+            </div>\
+          </div>\
+        </div>\
+        \
+        <div className="mt-16 pt-8 border-t border-slate-100 text-center">\
+          <p className="text-xs text-slate-300">\
+            \'a9 \{currentYear\} Trisula360Aura. Digital Strategy by Pardeep Kumar.\
+          </p>\
+        </div>\
+      </div>\
+    </footer>\
+  );\
+\});\
+\
+// ==========================================\
+// MAIN APP COMPONENT\
+// ==========================================\
+\
+export default function App() \{\
+  return (\
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-800 selection:bg-amber-500 selection:text-white scroll-smooth">\
+      <Navigation />\
+      <main>\
+        <Hero />\
+        <About />\
+        <Services />\
+        <Pricing />\
+        <Booking />\
+      </main>\
+      <Footer />\
+    </div>\
+  );\
+\}}
